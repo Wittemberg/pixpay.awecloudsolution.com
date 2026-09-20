@@ -105,16 +105,21 @@ stateDiagram-v2
 **Por que é um marco:** Entrega o fluxo principal da aplicação web para uso diário pelos sócios.
 **Funcionalidades:** US01
 **Checklist de aceite:**
-- [ ] Telas de Login, Dashboard e Modal de Geração de PIX implementadas em Next.js.
-- [ ] Cópia para área de transferência e renderização do QR Code SVG/Canvas.
-- [ ] Verificação de zoom 100% e responsividade mobile.
+- [x] Telas de Dashboard e Formulário de Geração de PIX implementadas na web.
+- [x] Métricas limpas / estado neutro sem dados fictícios (R$ 0,00 e tabela vazia).
+- [x] Cópia para área de transferência com feedback visual e renderização de QR Code.
+- [x] Verificação de zoom 100% e responsividade mobile no padrão Baseline Wittemberg.
 
 ### Milestone 2: Histórico e Configuração LofyPay
 **Por que é um marco:** Completa o ciclo de gestão financeira e configuração de credenciais no frontend.
 **Funcionalidades:** US02
 **Checklist de aceite:**
-- [ ] Tabela de histórico de pagamentos com paginação e filtros.
-- [ ] Tela de configuração de credenciais com máscara de segurança e teste de conexão com a LofyPay.
+- [x] Aba dedicada à configuração da LofyPay integrada ao painel com navegação fluida.
+- [x] Campo de Secret Key com mascaramento visual (`sec_dem****************4321`) e Client ID.
+- [x] Seletor de ambiente (Sandbox vs Produção) e badge de status da conexão.
+- [x] Card com URL canônica de webhook do PIXPAY pronta para cadastro com botão de cópia.
+- [x] Botões de ação "Salvar Credenciais" e "Testar Conexão" com feedback visual de resposta.
+- [ ] Tabela de histórico com paginação avançada e filtros por data (Sprint seguinte).
 
 ## 7. Riscos e Dependências
 

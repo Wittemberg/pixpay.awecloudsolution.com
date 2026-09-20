@@ -88,13 +88,15 @@ Este documento formaliza as práticas, governança e conformidade do projeto **P
 - Módulos desacoplados; referências internas gerenciadas via workspaces pnpm/npm.
 
 ### 2. Controle de Versão e Gestão de Repositório
-- Repositório Git configurado em `Wittemberg/pixpay.awecloudsolution.com`.
+- Repositório Git configurado em `git@github.com:Wittemberg/pixpay.awecloudsolution.com.git`.
 - Branch principal: `main`.
 - Convenção de commits: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`).
+- Histórico auditável de mudanças com OpenSpec arquivado em `openspec/changes/archive/`.
 
 ### 3. Testes Automatizados e Builds
-- Testes unitários com Vitest/Jest cobrindo regras de pagamento, idempotência e adapters.
-- Build multi-stage Dockerfile gerando imagens leves baseadas em Alpine Linux.
+- Validação estrita de especificações via `@fission-ai/openspec validate --all --strict`.
+- Build multi-stage Dockerfile gerando imagens Alpine Linux com healthcheck condicional (`PORT` dinâmica).
+- Endpoints de gestão de contas e testes de conectividade (`/api/v1/payment-accounts`, `/api/v1/payment-accounts/test`).
 
 ---
 
@@ -102,13 +104,14 @@ Este documento formaliza as práticas, governança e conformidade do projeto **P
 
 ### 1. Estratégia de Testes
 - **Testes Unitários:** Validação de DTOs, cálculos de status de pagamento, criptografia de chaves e lógica do `PaymentProvider`.
-- **Testes de Integração:** Simulação de fluxos completos de pagamento utilizando `MockPaymentProvider` e banco PostgreSQL em container de teste.
-- **Testes de Carga e Performance:** Validação de tempo de resposta da rota de webhook (<200ms) sob concorrência.
-- **Testes de Segurança (SAST/DAST):** Mascaramento de dados sensíveis em logs e verificação de injeção de parâmetros em rotas multi-tenant.
+- **Testes de Integração:** Simulação de fluxos completos de pagamento e validação de contratos de webhook.
+- **Segurança de Credenciais:** Mascaramento obrigatório da Secret Key na API (`sec_dem****************4321`) e em logs.
+- **Zero State Testing:** Garantia de ausência de dados fictícios em produção; métricas iniciam estritamente em R$ 0,00 e tabela vazia.
 
 ### 2. Homologação e Critérios de Aceite (UAT)
-- Validação visual da interface web com os sócios.
-- Homologação dos comandos conversacionais do Hermes Agent no WhatsApp utilizando ambiente Sandbox da LofyPay.
+- Validação visual da interface web com alternância de abas ("Dashboard & PIX" e "Configuração LofyPay").
+- Cópia segura da URL do webhook com feedback visual imediato ("Copiado!").
+- Handshake testado com sucesso contra simulação ativa de Sandbox.
 
 ---
 
@@ -116,16 +119,17 @@ Este documento formaliza as práticas, governança e conformidade do projeto **P
 
 ### 1. Provisionamento de Infraestrutura
 - Stack orquestrada no Docker Swarm (`deploy/stack.yml`) conectada à rede overlay `interna`.
-- Roteamento e terminação TLS automática pelo Traefik v3 via certificado Let's Encrypt.
-- Limites de memória e CPU aplicados em todos os containers para preservar os 4GB de RAM do servidor.
+- 4 serviços saudáveis e convergidos em 1/1 réplicas: `pixpay_api`, `pixpay_web`, `pixpay_worker`, `pixpay_redis`.
+- Roteamento e terminação TLS automática pelo Traefik v3 via certificado Let's Encrypt (`letsencryptresolver`).
+- Limites estritos de recursos (Redis limitado a 128MB, API e Web com limites de 256MB e 0.5 CPU).
 
 ### 2. Automação de CI/CD
 - Pipeline GitHub Actions (`.github/workflows/delivery.yml`):
-  1. Validação estática de artefatos OpenSpec e sintaxe do Swarm.
+  1. Validação estática de artefatos OpenSpec (`openspec validate --all --strict`).
   2. Build da imagem Docker multi-stage.
-  3. Publicação segura no GitHub Container Registry (`ghcr.io`).
+  3. Publicação segura no GitHub Container Registry (`ghcr.io/wittemberg/pixpay.awecloudsolution.com`).
   4. Trigger do webhook da stack no Portainer EE via script `scripts/deploy.py`.
-  5. Verificação ativa de convergência no endpoint `/api/health`.
+  5. Verificação ativa de convergência no endpoint público `https://pixpay.awecloudsolution.com/api/health`.
 
 ---
 

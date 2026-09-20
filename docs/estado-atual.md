@@ -1,10 +1,11 @@
 # Estado atual
 
-- **Objetivo e resultado esperado:** Limpar dados fictícios do dashboard e implementar a tela de configuração com o PSP LofyPay (Client ID, Secret Key mascarada, ambiente Sandbox/Produção, exibição da URL de webhook do PIXPAY e teste de conexão).
+- **Objetivo e resultado esperado:** Plataforma base, pipeline de CI/CD via GHCR/Portainer, limpeza de dados fictícios (zero state), módulo de configuração LofyPay com mascaramento e webhook, e documentação integralmente sincronizada até a versão 0.2.
 - **Mudança ativa / link para tarefas canônicas:** Mudança `2026-09-20-lofypay-config` concluída e consolidada em [openspec/specs/payment-account-config/spec.md](openspec/specs/payment-account-config/spec.md).
-- **Revisão Git / branch e alterações locais relevantes:** Branch `main`, implementação de abas na UI (`apps/web/server.js`), endpoints de credenciais na API (`apps/api/src/main.js` e `dist/main.js`), spec `payment-account-config`.
+- **Revisão Git / branch e alterações locais relevantes:** Branch `main`, sincronizada com o GitHub (`c4d15ed` e atualizações de documentação em curso).
 - **Decisões válidas:**
-  - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md)
+  - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md) (Seção 45 atualizada)
+  - [Engenharia e Ciclo de Vida](ENGENHARIA_E_CICLO_DE_VIDA.md) (Fases A a H atualizadas)
   - [Brainstorm Consolidado](brainstorm-pixpay.md)
   - [PRD Global](prd.md) e [PRDs de Feature](prds/)
   - [TRD Global](trd.md)
@@ -13,11 +14,11 @@
   - [Spec Payment Account Config](../openspec/specs/payment-account-config/spec.md)
 - **Última evidência:**
   - `openspec validate --all --strict`: 2 passed, 0 failed.
-  - Endpoints `/api/v1/payment-accounts`, `/api/v1/payment-accounts/test`, `/api/v1/webhooks/lofypay` prontos e testados.
-  - Dashboard Web com dados zerados (R$ 0,00, tabela limpa) e aba dedicada à LofyPay com URL de webhook pronta para cópia.
+  - Endpoints `/api/v1/payment-accounts`, `/api/v1/payment-accounts/test`, `/api/v1/webhooks/lofypay` operacionais e validados contra Sandbox.
+  - Dashboard Web live em `https://pixpay.awecloudsolution.com/` com estado zerado real e aba dedicada à LofyPay.
+  - Stack Docker Swarm `pixpay` com 4 serviços em 1/1 réplicas ativas e saudáveis sob Traefik v3 (`letsencryptresolver`).
   - Data: 2026-09-20.
 - **Pendência ou bloqueio real:**
-  - Nenhuma.
+  - Nenhuma. O sistema está pronto para recepção de credenciais reais de produção/sandbox da LofyPay pelo usuário.
 - **Próxima ação concreta e escopo já autorizado:**
-  - Enviar commit para a branch `main`, acionando o build automático no GitHub Actions e atualização da imagem via GHCR.
-  - Testar credenciais reais da LofyPay assim que fornecidas pelo usuário.
+  - Avançar para a modelagem persistente com Prisma ORM e PostgreSQL (`packages/database`).

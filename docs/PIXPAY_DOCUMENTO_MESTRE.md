@@ -1580,3 +1580,23 @@ O diferencial inicial não será possuir mais funções que os PSPs.
 Será oferecer uma experiência menor, mais rápida e mais natural,
 mantendo uma arquitetura segura e extensível por trás dessa
 simplicidade.
+
+------------------------------------------------------------------------
+
+## 45. Histórico de Evolução e Estado de Entrega
+
+### Versão 0.1 (2026-09-20) — Especificação e Infraestrutura Base
+- Elaboração do Documento Mestre, Brainstorm, PRD Global, TRD e ADRs 001 a 008.
+- Provisionamento da stack Swarm (`pixpay`) com Traefik v3, PostgreSQL 18 e Redis 7.
+- Pipeline de CI/CD via GitHub Actions e Portainer webhook implementado.
+- Mudança canônica OpenSpec `2026-09-20-bootstrap-platform` aprovada e arquivada em `spec/bootstrap-runtime`.
+
+### Versão 0.2 (2026-09-20) — Limpeza de Dados e Configuração LofyPay
+- **Zero State Operacional:** Remoção de dados fictícios. Métricas iniciam zeradas (R$ 0,00 e 0 cobranças) e histórico vazio com empty state explícito.
+- **Módulo de Configuração LofyPay:** Interface web em abas (`Dashboard & PIX` e `Configuração LofyPay`).
+- **Segurança de Credenciais:** Entrada e visualização protegida com máscara para a Secret Key (`sec_dem****************4321`) e Client ID.
+- **Ambientes:** Suporte a chaveamento entre Sandbox e Produção com badge dinâmico de status (`AGUARDANDO VALIDAÇÃO` / `CONECTADO E ATIVO`).
+- **Webhook Exposto:** Card informativo destacando a URL pública `https://pixpay.awecloudsolution.com/api/v1/webhooks/lofypay` com botão de cópia tátil para cadastro no painel da LofyPay.
+- **Endpoints de Conectividade:** Endpoints REST ativos para consulta (`GET /api/v1/payment-accounts`), persistência (`POST /api/v1/payment-accounts`), teste de handshake (`POST /api/v1/payment-accounts/test`) e ingestão (`POST /api/v1/webhooks/lofypay`).
+- **Governança OpenSpec:** Mudança canônica `2026-09-20-lofypay-config` aprovada e consolidada em `spec/payment-account-config`.
+
