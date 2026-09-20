@@ -2,7 +2,7 @@
 
 - **Objetivo e resultado esperado:** Inicializar o projeto `pixpay.awecloudsolution.com` seguindo a biblioteca Harness, conectando Docker Swarm, Traefik v3, Portainer e GHCR, com especificações canônicas de Brainstorm, PRD, TRD, ADRs, código executável da plataforma base e pipeline de CI/CD.
 - **Mudança ativa / link para tarefas canônicas:** Mudança `2026-09-20-bootstrap-platform` concluída e consolidada em [openspec/specs/bootstrap-runtime/spec.md](openspec/specs/bootstrap-runtime/spec.md).
-- **Revisão Git / branch e alterações locais relevantes:** Branch `main` sincronizada com `origin/main` (revisão `aaf89a1`).
+- **Revisão Git / branch e alterações locais relevantes:** Branch `main` sincronizada com `origin/main` (revisão `023ede5`).
 - **Decisões válidas:**
   - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md)
   - [Brainstorm Consolidado](brainstorm-pixpay.md)
@@ -11,11 +11,11 @@
   - [ADRs 001 a 008](adrs/)
   - [Guia de Deploy & Registry](DEPLOY_E_REGISTRY_GUIA.md)
 - **Última evidência:**
-  - `apps/api/dist/main.js`, `apps/api/src/main.js`, `apps/worker/dist/main.js` e `apps/web/server.js` rastreados e versionados no Git.
-  - `.gitignore` atualizado permitindo `!apps/**/dist/`.
-  - `docker build`: imagem local gerada e verificada com `docker run --rm ... ls -la /app/apps/api/dist`.
+  - Todos os 4 serviços da stack Swarm operacionais (1/1): `pixpay_api`, `pixpay_web`, `pixpay_worker`, `pixpay_redis`.
+  - `curl https://pixpay.awecloudsolution.com/api/health` retorna HTTP/2 200 com status `ok`.
+  - `curl https://pixpay.awecloudsolution.com/` retorna HTTP/2 200 servindo o Dashboard PIXPAY.
   - Data: 2026-09-20.
 - **Pendência ou bloqueio real:**
-  - Atualização do Portainer com a nova imagem que está sendo compilada pelo GitHub Actions.
+  - Nenhuma no momento; infraestrutura, CI/CD e stack 100% operacionais.
 - **Próxima ação concreta e escopo já autorizado:**
-  - Acompanhar execução da stack no Portainer e prosseguir com as fatias de produto conforme roadmap.
+  - Avançar para a Fase 1 e Fase 2 (Modelagem Prisma e Adapter LofyPay).
