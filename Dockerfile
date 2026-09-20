@@ -4,6 +4,11 @@ ENV NODE_ENV=production
 COPY package.json ./
 COPY apps ./apps
 
+# Garante a existência dos diretórios dist e arquivos de execução
+RUN mkdir -p apps/api/dist apps/worker/dist && \
+    if [ -f apps/api/src/main.js ] && [ ! -f apps/api/dist/main.js ]; then cp apps/api/src/main.js apps/api/dist/main.js; fi && \
+    if [ -f apps/worker/src/main.js ] && [ ! -f apps/worker/dist/main.js ]; then cp apps/worker/src/main.js apps/worker/dist/main.js; fi
+
 FROM base AS runtime
 ARG REVISION=local
 ENV APP_REVISION=${REVISION}
