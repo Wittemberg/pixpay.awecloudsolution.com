@@ -1,0 +1,20 @@
+{
+  "name": "pixpay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma multi-tenant de cobrança PIX com interface Web e IA Hermes Agent via MCP",
+  "scripts": {
+    "test": "echo \"Testes unitários e de integração serão executados aqui\" && exit 0",
+    "build": "echo \"Compilação do monorepo\"",
+    "lint": "echo \"Verificação de linting\""
+  },
+  "keywords": [
+    "pix",
+    "payments",
+    "mcp",
+    "hermes",
+    "multi-tenant"
+  ],
+  "author": "Wittemberg",
+  "license": "UNLICENSED"
+}

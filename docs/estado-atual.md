@@ -1,0 +1,22 @@
+# Estado atual
+
+- **Objetivo e resultado esperado:** Inicializar o projeto `pixpay.awecloudsolution.com` seguindo a biblioteca Harness, conectando Docker Swarm, Traefik v3, Portainer e GHCR, com especificações canônicas de Brainstorm, PRD, TRD, ADRs e pipeline de CI/CD.
+- **Mudança ativa / link para tarefas canônicas:** Fundação do repositório, especificações de engenharia e CI/CD.
+- **Revisão Git / branch e alterações locais relevantes:** Branch `main` sincronizada com `origin/main` (GitHub: `Wittemberg/pixpay.awecloudsolution.com`).
+- **Decisões válidas:**
+  - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md)
+  - [Brainstorm Consolidado](brainstorm-pixpay.md)
+  - [PRD Global](prd.md) e [PRDs de Feature](prds/)
+  - [TRD Global](trd.md)
+  - [ADRs 001 a 008](adrs/)
+  - [Guia de Deploy & Registry](DEPLOY_E_REGISTRY_GUIA.md)
+- **Última evidência:**
+  - `docker stack config -c deploy/stack.yml` validado com sucesso (código 0).
+  - `npx @fission-ai/openspec@1.13.1 validate --all --strict` executado com sucesso (código 0).
+  - `docker build -t ghcr.io/wittemberg/pixpay.awecloudsolution.com:test .` compilado com sucesso em 5.2s.
+  - Data: 2026-09-20.
+- **Pendência ou bloqueio real:**
+  - Criação da stack no Portainer e cadastro do PAT no GHCR / secrets do repositório conforme [Guia de Deploy](DEPLOY_E_REGISTRY_GUIA.md).
+  - Obtenção das credenciais/documentação de sandbox da LofyPay para a implementação dos testes do adapter.
+- **Próxima ação concreta e escopo já autorizado:**
+  - Conclusão da documentação das fases de engenharia (A até H) no relatório ao usuário e commit dos artefatos estruturados.

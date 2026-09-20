@@ -1,0 +1,159 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--appendonly", "yes"]
+    networks:
+      - interna
+    volumes:
+      - pixpay_redis_data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          memory: 32M
+      restart_policy:
+        condition: on-failure
+
+  api:
+    image: ghcr.io/wittemberg/pixpay.awecloudsolution.com:${IMAGE_TAG:-main}
+    command: ["node", "apps/api/dist/main.js"]
+    networks:
+      - interna
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/pixpay?schema=public
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - APP_URL=https://pixpay.awecloudsolution.com
+      - NODE_OPTIONS=--max-old-space-size=256
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+        reservations:
+          memory: 64M
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+      restart_policy:
+        condition: any
+        delay: 5s
+      labels:
+        - "traefik.enable=true"
+        - "traefik.swarm.network=interna"
+        - "traefik.http.routers.pixpay-api.rule=Host(`pixpay.awecloudsolution.com`) && (PathPrefix(`/api`) || PathPrefix(`/mcp`))"
+        - "traefik.http.routers.pixpay-api.entrypoints=websecure"
+        - "traefik.http.routers.pixpay-api.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.pixpay-api.priority=10"
+        - "traefik.http.services.pixpay-api.loadbalancer.server.port=3000"
+
+  web:
+    image: ghcr.io/wittemberg/pixpay.awecloudsolution.com:${IMAGE_TAG:-main}
+    command: ["node", "apps/web/server.js"]
+    networks:
+      - interna
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - NEXT_PUBLIC_API_URL=https://pixpay.awecloudsolution.com/api/v1
+      - NODE_OPTIONS=--max-old-space-size=256
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          memory: 64M
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+      restart_policy:
+        condition: any
+        delay: 5s
+      labels:
+        - "traefik.enable=true"
+        - "traefik.swarm.network=interna"
+        - "traefik.http.routers.pixpay-web.rule=Host(`pixpay.awecloudsolution.com`)"
+        - "traefik.http.routers.pixpay-web.entrypoints=websecure"
+        - "traefik.http.routers.pixpay-web.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.pixpay-web.priority=1"
+        - "traefik.http.services.pixpay-web.loadbalancer.server.port=3001"
+
+  worker:
+    image: ghcr.io/wittemberg/pixpay.awecloudsolution.com:${IMAGE_TAG:-main}
+    command: ["node", "apps/worker/dist/main.js"]
+    networks:
+      - interna
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/pixpay?schema=public
+      - REDIS_URL=redis://redis:6379
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - NODE_OPTIONS=--max-old-space-size=256
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          memory: 32M
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+      restart_policy:
+        condition: any
+        delay: 5s
+
+networks:
+  interna:
+    external: true
+
+volumes:
+  pixpay_redis_data:
+    driver: local
