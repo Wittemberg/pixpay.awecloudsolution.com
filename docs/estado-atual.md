@@ -2,7 +2,7 @@
 
 - **Objetivo e resultado esperado:** Inicializar o projeto `pixpay.awecloudsolution.com` seguindo a biblioteca Harness, conectando Docker Swarm, Traefik v3, Portainer e GHCR, com especificações canônicas de Brainstorm, PRD, TRD, ADRs, código executável da plataforma base e pipeline de CI/CD.
 - **Mudança ativa / link para tarefas canônicas:** Mudança `2026-09-20-bootstrap-platform` concluída e consolidada em [openspec/specs/bootstrap-runtime/spec.md](openspec/specs/bootstrap-runtime/spec.md).
-- **Revisão Git / branch e alterações locais relevantes:** Branch `main` sincronizada com `origin/main` (revisão `04bfd6c`).
+- **Revisão Git / branch e alterações locais relevantes:** Branch `main` sincronizada com `origin/main` (revisão `aaf89a1`).
 - **Decisões válidas:**
   - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md)
   - [Brainstorm Consolidado](brainstorm-pixpay.md)
@@ -11,11 +11,11 @@
   - [ADRs 001 a 008](adrs/)
   - [Guia de Deploy & Registry](DEPLOY_E_REGISTRY_GUIA.md)
 - **Última evidência:**
-  - `npx @fission-ai/openspec@1.13.1 validate --all --strict`: 1 passed, 0 failed.
-  - `docker stack config -c deploy/stack.yml`: válido.
-  - `docker build`: imagem criada e testada com curl nos endpoints `/api/health`.
+  - `apps/api/dist/main.js`, `apps/api/src/main.js`, `apps/worker/dist/main.js` e `apps/web/server.js` rastreados e versionados no Git.
+  - `.gitignore` atualizado permitindo `!apps/**/dist/`.
+  - `docker build`: imagem local gerada e verificada com `docker run --rm ... ls -la /app/apps/api/dist`.
   - Data: 2026-09-20.
 - **Pendência ou bloqueio real:**
-  - Atualização da stack no Portainer para deploy contínuo da imagem com a release mais recente.
+  - Atualização do Portainer com a nova imagem que está sendo compilada pelo GitHub Actions.
 - **Próxima ação concreta e escopo já autorizado:**
   - Acompanhar execução da stack no Portainer e prosseguir com as fatias de produto conforme roadmap.
