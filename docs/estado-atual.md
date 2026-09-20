@@ -1,8 +1,8 @@
 # Estado atual
 
-- **Objetivo e resultado esperado:** Inicializar o projeto `pixpay.awecloudsolution.com` seguindo a biblioteca Harness, conectando Docker Swarm, Traefik v3, Portainer e GHCR, com especificações canônicas de Brainstorm, PRD, TRD, ADRs e pipeline de CI/CD.
-- **Mudança ativa / link para tarefas canônicas:** Fundação do repositório, especificações de engenharia e CI/CD.
-- **Revisão Git / branch e alterações locais relevantes:** Branch `main` sincronizada com `origin/main` (GitHub: `Wittemberg/pixpay.awecloudsolution.com`).
+- **Objetivo e resultado esperado:** Inicializar o projeto `pixpay.awecloudsolution.com` seguindo a biblioteca Harness, conectando Docker Swarm, Traefik v3, Portainer e GHCR, com especificações canônicas de Brainstorm, PRD, TRD, ADRs, código executável da plataforma base e pipeline de CI/CD.
+- **Mudança ativa / link para tarefas canônicas:** Mudança `2026-09-20-bootstrap-platform` concluída e arquivada em [openspec/specs/bootstrap-runtime/spec.md](openspec/specs/bootstrap-runtime/spec.md).
+- **Revisão Git / branch e alterações locais relevantes:** Branch `main` com implementação dos serviços em `apps/api/dist/main.js`, `apps/web/server.js`, `apps/worker/dist/main.js` e `Dockerfile` atualizado.
 - **Decisões válidas:**
   - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md)
   - [Brainstorm Consolidado](brainstorm-pixpay.md)
@@ -11,12 +11,11 @@
   - [ADRs 001 a 008](adrs/)
   - [Guia de Deploy & Registry](DEPLOY_E_REGISTRY_GUIA.md)
 - **Última evidência:**
-  - `docker stack config -c deploy/stack.yml` validado com sucesso (código 0).
-  - `npx @fission-ai/openspec@1.13.1 validate --all --strict` executado com sucesso (código 0).
-  - `docker build -t ghcr.io/wittemberg/pixpay.awecloudsolution.com:test .` compilado com sucesso em 5.2s.
+  - `openspec validate bootstrap-platform --strict` aprovado com sucesso.
+  - `openspec archive -y bootstrap-platform` consolidou `bootstrap-runtime` com 3 requisitos.
+  - `docker build` concluído com sucesso e testado via `curl http://127.0.0.1:13000/api/health` retornando `status: "ok"`.
   - Data: 2026-09-20.
 - **Pendência ou bloqueio real:**
-  - Criação da stack no Portainer e cadastro do PAT no GHCR / secrets do repositório conforme [Guia de Deploy](DEPLOY_E_REGISTRY_GUIA.md).
-  - Obtenção das credenciais/documentação de sandbox da LofyPay para a implementação dos testes do adapter.
+  - Atualização da stack no Portainer para usar a nova revisão de imagem.
 - **Próxima ação concreta e escopo já autorizado:**
-  - Conclusão da documentação das fases de engenharia (A até H) no relatório ao usuário e commit dos artefatos estruturados.
+  - Enviar commit e push para o GitHub com os arquivos da aplicação e spec arquivada.
