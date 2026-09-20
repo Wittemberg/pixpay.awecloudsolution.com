@@ -1,21 +1,23 @@
 # Estado atual
 
-- **Objetivo e resultado esperado:** Inicializar o projeto `pixpay.awecloudsolution.com` seguindo a biblioteca Harness, conectando Docker Swarm, Traefik v3, Portainer e GHCR, com especificações canônicas de Brainstorm, PRD, TRD, ADRs, código executável da plataforma base e pipeline de CI/CD.
-- **Mudança ativa / link para tarefas canônicas:** Mudança `2026-09-20-bootstrap-platform` concluída e consolidada em [openspec/specs/bootstrap-runtime/spec.md](openspec/specs/bootstrap-runtime/spec.md).
-- **Revisão Git / branch e alterações locais relevantes:** Branch `main` sincronizada com `origin/main` (revisão `023ede5`).
+- **Objetivo e resultado esperado:** Limpar dados fictícios do dashboard e implementar a tela de configuração com o PSP LofyPay (Client ID, Secret Key mascarada, ambiente Sandbox/Produção, exibição da URL de webhook do PIXPAY e teste de conexão).
+- **Mudança ativa / link para tarefas canônicas:** Mudança `2026-09-20-lofypay-config` concluída e consolidada em [openspec/specs/payment-account-config/spec.md](openspec/specs/payment-account-config/spec.md).
+- **Revisão Git / branch e alterações locais relevantes:** Branch `main`, implementação de abas na UI (`apps/web/server.js`), endpoints de credenciais na API (`apps/api/src/main.js` e `dist/main.js`), spec `payment-account-config`.
 - **Decisões válidas:**
   - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md)
   - [Brainstorm Consolidado](brainstorm-pixpay.md)
   - [PRD Global](prd.md) e [PRDs de Feature](prds/)
   - [TRD Global](trd.md)
   - [ADRs 001 a 008](adrs/)
-  - [Guia de Deploy & Registry](DEPLOY_E_REGISTRY_GUIA.md)
+  - [Spec Bootstrap Runtime](../openspec/specs/bootstrap-runtime/spec.md)
+  - [Spec Payment Account Config](../openspec/specs/payment-account-config/spec.md)
 - **Última evidência:**
-  - Todos os 4 serviços da stack Swarm operacionais (1/1): `pixpay_api`, `pixpay_web`, `pixpay_worker`, `pixpay_redis`.
-  - `curl https://pixpay.awecloudsolution.com/api/health` retorna HTTP/2 200 com status `ok`.
-  - `curl https://pixpay.awecloudsolution.com/` retorna HTTP/2 200 servindo o Dashboard PIXPAY.
+  - `openspec validate --all --strict`: 2 passed, 0 failed.
+  - Endpoints `/api/v1/payment-accounts`, `/api/v1/payment-accounts/test`, `/api/v1/webhooks/lofypay` prontos e testados.
+  - Dashboard Web com dados zerados (R$ 0,00, tabela limpa) e aba dedicada à LofyPay com URL de webhook pronta para cópia.
   - Data: 2026-09-20.
 - **Pendência ou bloqueio real:**
-  - Nenhuma no momento; infraestrutura, CI/CD e stack 100% operacionais.
+  - Nenhuma.
 - **Próxima ação concreta e escopo já autorizado:**
-  - Avançar para a Fase 1 e Fase 2 (Modelagem Prisma e Adapter LofyPay).
+  - Enviar commit para a branch `main`, acionando o build automático no GitHub Actions e atualização da imagem via GHCR.
+  - Testar credenciais reais da LofyPay assim que fornecidas pelo usuário.
