@@ -14,9 +14,9 @@ ARG REVISION=local
 ENV APP_REVISION=${REVISION}
 LABEL org.opencontainers.image.source="https://github.com/Wittemberg/pixpay.awecloudsolution.com"
 
-# Healthcheck para monitorar o status da API
+# Healthcheck dinâmico: valida a porta configurada no serviço ou passa se for worker
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
+  CMD [ -z "$PORT" ] || wget --no-verbose --tries=1 --spider http://127.0.0.1:${PORT}/api/health || exit 1
 
 EXPOSE 3000 3001
 CMD ["node", "apps/api/dist/main.js"]

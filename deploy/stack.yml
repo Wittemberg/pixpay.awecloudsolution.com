@@ -38,6 +38,12 @@ services:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - APP_URL=https://pixpay.awecloudsolution.com
       - NODE_OPTIONS=--max-old-space-size=256
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     logging:
       driver: json-file
       options:
@@ -81,6 +87,12 @@ services:
       - PORT=3001
       - NEXT_PUBLIC_API_URL=https://pixpay.awecloudsolution.com/api/v1
       - NODE_OPTIONS=--max-old-space-size=256
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3001/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     logging:
       driver: json-file
       options:
@@ -125,6 +137,8 @@ services:
       - REDIS_URL=redis://redis:6379
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - NODE_OPTIONS=--max-old-space-size=256
+    healthcheck:
+      disable: true
     logging:
       driver: json-file
       options:
