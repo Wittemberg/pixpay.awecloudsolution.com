@@ -1,7 +1,7 @@
 # bootstrap-runtime Specification
 
 ## Purpose
-TBD - created by archiving change bootstrap-platform. Update Purpose after archive.
+Fornece os runtimes e serviços fundamentais de execução para a plataforma PIXPAY (API REST, Frontend Web e Worker em segundo plano), expondo interfaces de verificação de saúde e ciclo de vida padronizados para orquestração no Docker Swarm e proxy reverso Traefik.
 
 ## Requirements
 
