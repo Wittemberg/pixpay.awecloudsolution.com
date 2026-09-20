@@ -1,8 +1,8 @@
 # Estado atual
 
 - **Objetivo e resultado esperado:** Inicializar o projeto `pixpay.awecloudsolution.com` seguindo a biblioteca Harness, conectando Docker Swarm, Traefik v3, Portainer e GHCR, com especificações canônicas de Brainstorm, PRD, TRD, ADRs, código executável da plataforma base e pipeline de CI/CD.
-- **Mudança ativa / link para tarefas canônicas:** Mudança `2026-09-20-bootstrap-platform` concluída e arquivada em [openspec/specs/bootstrap-runtime/spec.md](openspec/specs/bootstrap-runtime/spec.md).
-- **Revisão Git / branch e alterações locais relevantes:** Branch `main` com implementação dos serviços em `apps/api/dist/main.js`, `apps/web/server.js`, `apps/worker/dist/main.js` e `Dockerfile` atualizado.
+- **Mudança ativa / link para tarefas canônicas:** Mudança `2026-09-20-bootstrap-platform` concluída e consolidada em [openspec/specs/bootstrap-runtime/spec.md](openspec/specs/bootstrap-runtime/spec.md).
+- **Revisão Git / branch e alterações locais relevantes:** Branch `main` sincronizada com `origin/main` (revisão `04bfd6c`).
 - **Decisões válidas:**
   - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md)
   - [Brainstorm Consolidado](brainstorm-pixpay.md)
@@ -11,11 +11,11 @@
   - [ADRs 001 a 008](adrs/)
   - [Guia de Deploy & Registry](DEPLOY_E_REGISTRY_GUIA.md)
 - **Última evidência:**
-  - `openspec validate bootstrap-platform --strict` aprovado com sucesso.
-  - `openspec archive -y bootstrap-platform` consolidou `bootstrap-runtime` com 3 requisitos.
-  - `docker build` concluído com sucesso e testado via `curl http://127.0.0.1:13000/api/health` retornando `status: "ok"`.
+  - `npx @fission-ai/openspec@1.13.1 validate --all --strict`: 1 passed, 0 failed.
+  - `docker stack config -c deploy/stack.yml`: válido.
+  - `docker build`: imagem criada e testada com curl nos endpoints `/api/health`.
   - Data: 2026-09-20.
 - **Pendência ou bloqueio real:**
-  - Atualização da stack no Portainer para usar a nova revisão de imagem.
+  - Atualização da stack no Portainer para deploy contínuo da imagem com a release mais recente.
 - **Próxima ação concreta e escopo já autorizado:**
-  - Enviar commit e push para o GitHub com os arquivos da aplicação e spec arquivada.
+  - Acompanhar execução da stack no Portainer e prosseguir com as fatias de produto conforme roadmap.
