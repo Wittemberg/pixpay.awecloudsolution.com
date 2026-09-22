@@ -1,0 +1,210 @@
+// Prisma Schema para PIXPAY
+// PostgreSQL 18.6 com multi-tenancy via discriminador tenant_id
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// 1. TENANT - Organizações
+// ============================================================================
+model Tenant {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  status          String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETED
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  // Relações
+  tenant_users     TenantUser[]
+  service_accounts ServiceAccount[]
+  payment_accounts PaymentAccount[]
+  payments         Payment[]
+  audit_logs       AuditLog[]
+  
+  @@map("tenants")
+}
+
+// ============================================================================
+// 2. USER - Usuários do Sistema
+// ============================================================================
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password_hash String
+  full_name     String
+  status        String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETED
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  
+  // Relações
+  tenant_users  TenantUser[]
+  
+  @@map("users")
+}
+
+// ============================================================================
+// 3. TENANT_USER - Relacionamento Many-to-Many com Roles
+// ============================================================================
+model TenantUser {
+  id         String   @id @default(cuid())
+  tenant_id  String
+  user_id    String
+  role       String   // OWNER, ADMIN, VIEWER
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  // Relações
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@unique([tenant_id, user_id])
+  @@index([user_id])
+  @@map("tenant_users")
+}
+
+// ============================================================================
+// 4. SERVICE_ACCOUNT - Tokens de IA/Bots (Hermes Agent)
+// ============================================================================
+model ServiceAccount {
+  id           String    @id @default(cuid())
+  tenant_id    String
+  name         String
+  token_hash   String    @unique  // SHA-256 do token wpk_live_...
+  scopes       String    // JSON array: ["payments:create", "payments:read"]
+  status       String    @default("ACTIVE") // ACTIVE, REVOKED
+  last_used_at DateTime?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  
+  // Relações
+  tenant       Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  
+  @@index([tenant_id])
+  @@map("service_accounts")
+}
+
+// ============================================================================
+// 5. PAYMENT_ACCOUNT - Credenciais de PSP (LofyPay, EFI, MercadoPago)
+// ============================================================================
+model PaymentAccount {
+  id                    String    @id @default(cuid())
+  tenant_id             String
+  provider              String    // LOFYPAY, EFI, MERCADOPAGO
+  environment           String    // SANDBOX, PRODUCTION
+  encrypted_credentials String    @db.Text  // AES-256-GCM encrypted JSON
+  status                String    @default("PENDING") // PENDING, ACTIVE, INVALID
+  last_tested_at        DateTime?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+  
+  // Relações
+  tenant                Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payments              Payment[]
+  
+  @@unique([tenant_id, provider, environment])
+  @@index([tenant_id])
+  @@map("payment_accounts")
+}
+
+// ============================================================================
+// 6. PAYMENT - Cobranças PIX
+// ============================================================================
+model Payment {
+  id                  String         @id @default(cuid())
+  tenant_id           String
+  payment_account_id  String
+  provider_payment_id String?        // ID externo no PSP
+  amount              Decimal        @db.Decimal(10, 2)
+  currency            String         @default("BRL")
+  description         String
+  customer_name       String?
+  customer_document   String?
+  status              String         @default("PENDING") // PENDING, PAID, EXPIRED, CANCELLED
+  pix_copy_paste      String         @db.Text
+  qr_code_url         String?        @db.Text
+  expires_at          DateTime
+  paid_at             DateTime?
+  created_at          DateTime       @default(now())
+  updated_at          DateTime       @updatedAt
+  
+  // Relações
+  tenant              Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payment_account     PaymentAccount @relation(fields: [payment_account_id], references: [id])
+  payment_events      PaymentEvent[]
+  
+  @@index([tenant_id, created_at])
+  @@index([tenant_id, status])
+  @@index([provider_payment_id])
+  @@map("payments")
+}
+
+// ============================================================================
+// 7. PAYMENT_EVENT - Histórico Imutável de Transições (Append-Only)
+// ============================================================================
+model PaymentEvent {
+  id              String   @id @default(cuid())
+  payment_id      String
+  event_type      String   // CREATED, PAID, EXPIRED, CANCELLED, REFUNDED
+  previous_status String?
+  new_status      String
+  source          String   // WEBHOOK, RECONCILIATION, MANUAL, API
+  metadata        String?  @db.Text  // JSON com detalhes adicionais
+  created_at      DateTime @default(now())
+  
+  // Relações
+  payment         Payment  @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+  
+  @@index([payment_id])
+  @@index([created_at])
+  @@map("payment_events")
+}
+
+// ============================================================================
+// 8. WEBHOOK_EVENT - Payloads Brutos de Webhooks (Append-Only)
+// ============================================================================
+model WebhookEvent {
+  id            String    @id @default(cuid())
+  provider      String    // LOFYPAY
+  event_type    String?
+  raw_payload   String    @db.Text  // JSON bruto recebido
+  signature     String?
+  processed     Boolean   @default(false)
+  processed_at  DateTime?
+  error_message String?   @db.Text
+  created_at    DateTime  @default(now())
+  
+  @@index([provider, created_at])
+  @@index([processed])
+  @@map("webhook_events")
+}
+
+// ============================================================================
+// 9. AUDIT_LOG - Trilha de Auditoria de Segurança (Append-Only)
+// ============================================================================
+model AuditLog {
+  id                 String   @id @default(cuid())
+  tenant_id          String
+  user_id            String?
+  service_account_id String?
+  action             String   // LOGIN, LOGOUT, CREATE_PAYMENT, REVOKE_TOKEN, etc.
+  resource_type      String?  // Payment, ServiceAccount, User, etc.
+  resource_id        String?
+  ip_address         String?
+  user_agent         String?  @db.Text
+  metadata           String?  @db.Text  // JSON com contexto adicional
+  created_at         DateTime @default(now())
+  
+  // Relações
+  tenant             Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  
+  @@index([tenant_id, created_at])
+  @@index([action])
+  @@map("audit_logs")
+}

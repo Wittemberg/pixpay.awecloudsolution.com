@@ -1,8 +1,8 @@
 # Estado atual
 
-- **Objetivo e resultado esperado:** Plataforma base, pipeline de CI/CD via GHCR/Portainer, limpeza de dados fictícios (zero state), módulo de configuração LofyPay com mascaramento e webhook, e documentação integralmente sincronizada até a versão 0.2.
-- **Mudança ativa / link para tarefas canônicas:** Mudança `2026-09-20-lofypay-config` concluída e consolidada em [openspec/specs/payment-account-config/spec.md](openspec/specs/payment-account-config/spec.md).
-- **Revisão Git / branch e alterações locais relevantes:** Branch `main`, sincronizada com o GitHub (`c4d15ed` e atualizações de documentação em curso).
+- **Objetivo e resultado esperado:** Plataforma base, pipeline de CI/CD via GHCR/Portainer, limpeza de dados fictícios (zero state), módulo de configuração LofyPay com mascaramento e webhook, camada de persistência Prisma ORM com PostgreSQL 18, e documentação integralmente sincronizada até a versão 0.3.
+- **Mudança ativa / link para tarefas canônicas:** Mudança `database-schema-prisma` com Tasks 1-5 concluídas. Spec canônica em [openspec/changes/database-schema-prisma/specs/database-foundation/spec.md](../openspec/changes/database-schema-prisma/specs/database-foundation/spec.md).
+- **Revisão Git / branch e alterações locais relevantes:** Branch `main`, modificações locais: `package.json` (workspaces), `packages/database/` completo (schema, client singleton, build artifacts).
 - **Decisões válidas:**
   - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md) (Seção 45 atualizada)
   - [Engenharia e Ciclo de Vida](ENGENHARIA_E_CICLO_DE_VIDA.md) (Fases A a H atualizadas)
@@ -12,13 +12,19 @@
   - [ADRs 001 a 008](adrs/)
   - [Spec Bootstrap Runtime](../openspec/specs/bootstrap-runtime/spec.md)
   - [Spec Payment Account Config](../openspec/specs/payment-account-config/spec.md)
+  - [Spec Database Foundation](../openspec/changes/database-schema-prisma/specs/database-foundation/spec.md)
 - **Última evidência:**
-  - `openspec validate --all --strict`: 2 passed, 0 failed.
-  - Endpoints `/api/v1/payment-accounts`, `/api/v1/payment-accounts/test`, `/api/v1/webhooks/lofypay` operacionais e validados contra Sandbox.
+  - Pacote `@pixpay/database` criado e compilado: Prisma Client gerado, tipos TypeScript em `dist/`, 9 models definidos (Tenant, User, TenantUser, ServiceAccount, PaymentAccount, Payment, PaymentEvent, WebhookEvent, AuditLog).
+  - Schema Prisma completo com multi-tenancy via `tenant_id`, índices compostos, foreign keys com cascade, tipos Decimal para valores monetários.
+  - Workspace configurado no root `package.json` com `packages/*` e `apps/*`.
+  - Stack Docker Swarm `pixpay` com 4 serviços em 1/1 réplicas ativas e saudáveis sob Traefik v3.
   - Dashboard Web live em `https://pixpay.awecloudsolution.com/` com estado zerado real e aba dedicada à LofyPay.
-  - Stack Docker Swarm `pixpay` com 4 serviços em 1/1 réplicas ativas e saudáveis sob Traefik v3 (`letsencryptresolver`).
-  - Data: 2026-09-20.
+  - Data: 2026-09-21.
 - **Pendência ou bloqueio real:**
-  - Nenhuma. O sistema está pronto para recepção de credenciais reais de produção/sandbox da LofyPay pelo usuário.
+  - Migration inicial ainda não aplicada (requer configuração de `DATABASE_URL` e PostgreSQL 18.6 acessível).
+  - Dockerfiles e entrypoint scripts ainda não atualizados para incluir Prisma generate e migrate deploy.
 - **Próxima ação concreta e escopo já autorizado:**
-  - Avançar para a modelagem persistente com Prisma ORM e PostgreSQL (`packages/database`).
+  - Task 3: Gerar migration inicial via `prisma migrate dev --name init` (requer DATABASE_URL configurada).
+  - Task 6: Atualizar Dockerfiles para incluir Prisma generate no build.
+  - Task 7: Criar script docker-entrypoint.sh com migration automática.
+  - Tasks 8-9: Integrar `@pixpay/database` em apps/api e apps/worker.

@@ -3,10 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "description": "Plataforma multi-tenant de cobrança PIX com interface Web e IA Hermes Agent via MCP",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "test": "echo \"Testes unitários e de integração serão executados aqui\" && exit 0",
     "build": "echo \"Compilação do monorepo\"",
-    "lint": "echo \"Verificação de linting\""
+    "lint": "echo \"Verificação de linting\"",
+    "db:generate": "cd packages/database && npm run generate",
+    "db:migrate:dev": "cd packages/database && npm run migrate:dev",
+    "db:migrate:deploy": "cd packages/database && npm run migrate:deploy",
+    "db:studio": "cd packages/database && npm run studio"
   },
   "keywords": [
     "pix",
@@ -16,5 +24,8 @@
     "multi-tenant"
   ],
   "author": "Wittemberg",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
 }

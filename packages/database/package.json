@@ -1,0 +1,27 @@
+{
+  "name": "@pixpay/database",
+  "version": "0.1.0",
+  "description": "Camada de persistência Prisma ORM para PIXPAY",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:reset": "prisma migrate reset",
+    "studio": "prisma studio",
+    "build": "tsc",
+    "clean": "rm -rf dist node_modules .prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^20.0.0"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  }
+}
