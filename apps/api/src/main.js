@@ -9,6 +9,16 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = '0.0.0.0';
 const REVISION = process.env.APP_REVISION || 'local';
 
+// Prisma Client import
+let prisma = null;
+try {
+  const { prisma: prismaClient } = require('@pixpay/database');
+  prisma = prismaClient;
+  console.log('[PIXPAY API] Prisma Client loaded successfully');
+} catch (err) {
+  console.warn('[PIXPAY API] Prisma Client not available:', err.message);
+}
+
 // Estado persistido em memória (preparado para espelhamento em PostgreSQL)
 let paymentsList = [];
 
@@ -69,14 +79,38 @@ const server = http.createServer((req, res) => {
   }
 
   if (pathname === '/api/v1/health') {
-    sendJson(res, 200, {
-      status: 'ok',
-      service: 'pixpay-api-v1',
-      database: process.env.DATABASE_URL ? 'configured' : 'missing',
-      redis: process.env.REDIS_URL ? 'configured' : 'missing',
-      revision: REVISION,
-      environment: process.env.NODE_ENV || 'development',
-    });
+    // Check database connection if Prisma is available
+    if (prisma) {
+      prisma.$queryRaw`SELECT 1`
+        .then(() => {
+          sendJson(res, 200, {
+            status: 'ok',
+            service: 'pixpay-api-v1',
+            database: 'connected',
+            redis: process.env.REDIS_URL ? 'configured' : 'missing',
+            revision: REVISION,
+            environment: process.env.NODE_ENV || 'development',
+          });
+        })
+        .catch(err => {
+          sendJson(res, 503, {
+            status: 'error',
+            service: 'pixpay-api-v1',
+            database: 'disconnected',
+            error: err.message,
+            revision: REVISION,
+          });
+        });
+    } else {
+      sendJson(res, 200, {
+        status: 'ok',
+        service: 'pixpay-api-v1',
+        database: process.env.DATABASE_URL ? 'configured' : 'missing',
+        redis: process.env.REDIS_URL ? 'configured' : 'missing',
+        revision: REVISION,
+        environment: process.env.NODE_ENV || 'development',
+      });
+    }
     return;
   }
 
@@ -286,10 +320,17 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`[PIXPAY API] Servidor rodando em http://${HOST}:${PORT} (Revisão: ${REVISION})`);
+  if (prisma) {
+    console.log('[PIXPAY API] Database connection via Prisma is ready');
+  }
 });
 
-function gracefulShutdown(signal) {
+async function gracefulShutdown(signal) {
   console.log(`[PIXPAY API] Recebido sinal ${signal}. Encerrando...`);
+  if (prisma) {
+    await prisma.$disconnect();
+    console.log('[PIXPAY API] Prisma disconnected');
+  }
   server.close(() => process.exit(0));
 }
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

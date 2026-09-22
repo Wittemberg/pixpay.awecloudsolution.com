@@ -1,0 +1,14 @@
+{
+  "name": "@pixpay/api",
+  "version": "0.3.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "node src/main.js",
+    "build": "echo 'No build needed - JavaScript source'",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@pixpay/database": "workspace:*"
+  }
+}
