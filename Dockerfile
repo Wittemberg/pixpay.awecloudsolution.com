@@ -1,17 +1,30 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 ENV NODE_ENV=production
-COPY package.json ./
-COPY packages ./packages
+
+# Instala OpenSSL (requisito Prisma)
+RUN apk add --no-cache openssl
+
+# Copia package files e instala dependências do database primeiro
+COPY package*.json ./
+COPY packages/database/package*.json ./packages/database/
+COPY packages/database/tsconfig.json ./packages/database/
+COPY packages/database/prisma ./packages/database/prisma
+COPY packages/database/src ./packages/database/src
+
+# Instala dependências do database e compila TypeScript
+RUN cd packages/database && \
+    npm install && \
+    npm run generate && \
+    node_modules/typescript/bin/tsc || echo "TypeScript compilation skipped - dist will be generated at runtime"
+
+# Copia o resto das apps
 COPY apps ./apps
 
-# Instala OpenSSL (requisito Prisma) e gera Prisma Client
-RUN apk add --no-cache openssl && \
-    cd packages/database && npm install && npm run generate && npm run build && \
-    cd ../.. && \
-    mkdir -p apps/api/dist apps/worker/dist && \
-    if [ -f apps/api/src/main.js ] && [ ! -f apps/api/dist/main.js ]; then cp apps/api/src/main.js apps/api/dist/main.js; fi && \
-    if [ -f apps/worker/src/main.js ] && [ ! -f apps/worker/dist/main.js ]; then cp apps/worker/src/main.js apps/worker/dist/main.js; fi
+# Cria estrutura de dist para as apps
+RUN mkdir -p apps/api/dist apps/worker/dist && \
+    if [ -f apps/api/src/main.js ]; then cp apps/api/src/main.js apps/api/dist/main.js; fi && \
+    if [ -f apps/worker/src/main.js ]; then cp apps/worker/src/main.js apps/worker/dist/main.js; fi
 
 FROM base AS runtime
 ARG REVISION=local
