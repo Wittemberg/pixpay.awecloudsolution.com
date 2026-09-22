@@ -19,18 +19,38 @@ try {
   console.warn('[PIXPAY API] Prisma Client not available:', err.message);
 }
 
-// Estado persistido em memória (preparado para espelhamento em PostgreSQL)
-let paymentsList = [];
+// ============================================================================
+// TENANT PADRÃO (single-tenant provisório até implementar autenticação)
+// ============================================================================
+const DEFAULT_TENANT_ID = 'default-tenant';
 
-let lofypayAccount = {
-  provider: 'LOFYPAY',
-  environment: process.env.LOFYPAY_DEFAULT_ENV || 'SANDBOX',
-  clientId: '',
-  secretKey: '',
-  status: 'PENDING',
-  webhookUrl: 'https://pixpay.awecloudsolution.com/api/v1/webhooks/lofypay',
-  lastTestedAt: null,
-};
+// Função auxiliar para garantir tenant padrão existe
+async function ensureDefaultTenant() {
+  if (!prisma) return null;
+
+  try {
+    let tenant = await prisma.tenant.findUnique({
+      where: { id: DEFAULT_TENANT_ID }
+    });
+
+    if (!tenant) {
+      tenant = await prisma.tenant.create({
+        data: {
+          id: DEFAULT_TENANT_ID,
+          name: 'Default Organization',
+          slug: 'default',
+          status: 'ACTIVE',
+        }
+      });
+      console.log('[PIXPAY API] Default tenant created:', DEFAULT_TENANT_ID);
+    }
+
+    return tenant;
+  } catch (err) {
+    console.error('[PIXPAY API] Error ensuring default tenant:', err.message);
+    return null;
+  }
+}
 
 function maskSecret(key) {
   if (!key) return '';
@@ -116,41 +136,90 @@ const server = http.createServer((req, res) => {
 
   // Payments summary — métricas reais calculadas dinamicamente (limpas de dados fictícios)
   if (pathname === '/api/v1/payments/summary' && method === 'GET') {
-    const today = new Date().toDateString();
-    let todayReceived = 0;
-    let todayCount = 0;
-    let pendingTotal = 0;
-    let pendingCount = 0;
+    (async () => {
+      try {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
 
-    for (const p of paymentsList) {
-      const pDate = new Date(p.created_at).toDateString();
-      if (p.status === 'PAID') {
-        if (pDate === today) {
-          todayReceived += p.amount;
-          todayCount++;
-        }
-      } else if (p.status === 'PENDING') {
-        pendingTotal += p.amount;
-        pendingCount++;
+        // Recebido hoje (PAID e criado hoje)
+        const todayPaid = await prisma.payment.aggregate({
+          where: {
+            tenant_id: DEFAULT_TENANT_ID,
+            status: 'PAID',
+            created_at: {
+              gte: todayStart,
+              lte: todayEnd,
+            },
+          },
+          _sum: {
+            amount: true,
+          },
+          _count: true,
+        });
+
+        // Pendente (status PENDING)
+        const pending = await prisma.payment.aggregate({
+          where: {
+            tenant_id: DEFAULT_TENANT_ID,
+            status: 'PENDING',
+          },
+          _sum: {
+            amount: true,
+          },
+          _count: true,
+        });
+
+        sendJson(res, 200, {
+          todayReceived: todayPaid._sum.amount ? parseFloat(todayPaid._sum.amount.toString()) : 0,
+          todayCount: todayPaid._count || 0,
+          pendingTotal: pending._sum.amount ? parseFloat(pending._sum.amount.toString()) : 0,
+          pendingCount: pending._count || 0,
+          currency: 'BRL',
+        });
+      } catch (err) {
+        console.error('[PIXPAY API] Error fetching payment summary:', err);
+        sendJson(res, 500, { error: 'INTERNAL_ERROR', message: 'Erro ao buscar resumo' });
       }
-    }
-
-    sendJson(res, 200, {
-      todayReceived,
-      todayCount,
-      pendingTotal,
-      pendingCount,
-      currency: 'BRL',
-    });
+    })();
     return;
   }
 
   // Payments list — lista real (inicia vazia)
   if (pathname === '/api/v1/payments' && method === 'GET') {
-    sendJson(res, 200, {
-      data: paymentsList,
-      total: paymentsList.length,
-    });
+    (async () => {
+      try {
+        const payments = await prisma.payment.findMany({
+          where: {
+            tenant_id: DEFAULT_TENANT_ID,
+          },
+          orderBy: {
+            created_at: 'desc',
+          },
+        });
+
+        const formattedPayments = payments.map(p => ({
+          id: p.id,
+          amount: parseFloat(p.amount.toString()),
+          description: p.description,
+          customer: p.customer_name,
+          status: p.status,
+          pix_copy_paste: p.pix_copy_paste,
+          qr_code_url: p.qr_code_url,
+          expires_at: p.expires_at.toISOString(),
+          created_at: p.created_at.toISOString(),
+        }));
+
+        sendJson(res, 200, {
+          data: formattedPayments,
+          total: formattedPayments.length,
+        });
+      } catch (err) {
+        console.error('[PIXPAY API] Error listing payments:', err);
+        sendJson(res, 500, { error: 'INTERNAL_ERROR', message: 'Erro ao buscar pagamentos' });
+      }
+    })();
     return;
   }
 
@@ -158,7 +227,7 @@ const server = http.createServer((req, res) => {
   if (pathname === '/api/v1/payments' && method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const payload = body ? JSON.parse(body) : {};
         const amount = parseFloat(payload.amount);
@@ -169,38 +238,71 @@ const server = http.createServer((req, res) => {
 
         const description = payload.description || 'Cobrança PIXPAY';
         const customer = payload.customer || 'Cliente';
-        const publicId = 'pay_' + Math.random().toString(36).substring(2, 10);
+
+        // Garantir que tenant padrão existe
+        const tenant = await ensureDefaultTenant();
+        if (!tenant) {
+          sendJson(res, 503, { error: 'SERVICE_UNAVAILABLE', message: 'Banco de dados indisponível' });
+          return;
+        }
+
+        // Buscar ou criar conta de pagamento padrão LOFYPAY
+        let paymentAccount = await prisma.paymentAccount.findFirst({
+          where: {
+            tenant_id: DEFAULT_TENANT_ID,
+            provider: 'LOFYPAY',
+          }
+        });
+
+        if (!paymentAccount) {
+          // Criar conta padrão vazia (será configurada depois via POST /payment-accounts)
+          paymentAccount = await prisma.paymentAccount.create({
+            data: {
+              tenant_id: DEFAULT_TENANT_ID,
+              provider: 'LOFYPAY',
+              environment: process.env.LOFYPAY_DEFAULT_ENV || 'SANDBOX',
+              encrypted_credentials: JSON.stringify({}), // vazio por enquanto
+              status: 'PENDING',
+            }
+          });
+        }
+
+        // Gerar código PIX copia e cola simulado
         const copyPaste = '00020126580014br.gov.bcb.pix0136' + Math.random().toString(36).substring(2, 15) + '520400005303986540' + amount.toFixed(2) + '5802BR5907PIXPAY6009SAO PAULO6304' + Math.random().toString(36).substring(2, 6).toUpperCase();
 
-        const newPayment = {
-          id: publicId,
-          amount,
-          description,
-          customer,
-          status: 'PENDING',
-          pix_copy_paste: copyPaste,
-          qr_code_url: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(copyPaste)}`,
-          expires_at: new Date(Date.now() + 1800000).toISOString(),
-          created_at: new Date().toISOString(),
-        };
-
-        paymentsList.unshift(newPayment);
+        // Criar pagamento no banco de dados
+        const expiresAt = new Date(Date.now() + 1800000);
+        const newPayment = await prisma.payment.create({
+          data: {
+            tenant_id: DEFAULT_TENANT_ID,
+            payment_account_id: paymentAccount.id,
+            amount: amount,
+            currency: 'BRL',
+            description: description,
+            customer_name: customer,
+            status: 'PENDING',
+            pix_copy_paste: copyPaste,
+            qr_code_url: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(copyPaste)}`,
+            expires_at: expiresAt,
+          }
+        });
 
         sendJson(res, 201, {
           id: newPayment.id,
-          amount: newPayment.amount,
+          amount: parseFloat(newPayment.amount.toString()),
           description: newPayment.description,
-          customer: newPayment.customer,
+          customer: newPayment.customer_name,
           status: newPayment.status,
           pix: {
             copy_paste: newPayment.pix_copy_paste,
             qr_code_url: newPayment.qr_code_url,
           },
-          expires_at: newPayment.expires_at,
-          created_at: newPayment.created_at,
+          expires_at: newPayment.expires_at.toISOString(),
+          created_at: newPayment.created_at.toISOString(),
         });
       } catch (err) {
-        sendJson(res, 400, { error: 'BAD_REQUEST', message: 'Payload JSON inválido' });
+        console.error('[PIXPAY API] Error creating payment:', err);
+        sendJson(res, 500, { error: 'INTERNAL_ERROR', message: 'Erro ao criar pagamento' });
       }
     });
     return;
@@ -208,18 +310,52 @@ const server = http.createServer((req, res) => {
 
   // Payment Accounts - Get LofyPay Config (chave mascarada)
   if (pathname === '/api/v1/payment-accounts' && method === 'GET') {
-    sendJson(res, 200, {
-      data: {
-        provider: lofypayAccount.provider,
-        environment: lofypayAccount.environment,
-        clientId: lofypayAccount.clientId,
-        hasSecret: Boolean(lofypayAccount.secretKey),
-        maskedSecretKey: maskSecret(lofypayAccount.secretKey),
-        status: lofypayAccount.status,
-        webhookUrl: lofypayAccount.webhookUrl,
-        lastTestedAt: lofypayAccount.lastTestedAt,
+    (async () => {
+      try {
+        const paymentAccount = await prisma.paymentAccount.findFirst({
+          where: {
+            tenant_id: DEFAULT_TENANT_ID,
+            provider: 'LOFYPAY',
+          }
+        });
+
+        if (!paymentAccount) {
+          sendJson(res, 200, {
+            data: {
+              provider: 'LOFYPAY',
+              environment: process.env.LOFYPAY_DEFAULT_ENV || 'SANDBOX',
+              clientId: '',
+              hasSecret: false,
+              maskedSecretKey: '',
+              status: 'PENDING',
+              webhookUrl: '',
+              lastTestedAt: null,
+            }
+          });
+          return;
+        }
+
+        const credentials = paymentAccount.encrypted_credentials
+          ? JSON.parse(paymentAccount.encrypted_credentials)
+          : {};
+
+        sendJson(res, 200, {
+          data: {
+            provider: paymentAccount.provider,
+            environment: paymentAccount.environment,
+            clientId: credentials.clientId || '',
+            hasSecret: Boolean(credentials.secretKey),
+            maskedSecretKey: maskSecret(credentials.secretKey || ''),
+            status: paymentAccount.status,
+            webhookUrl: credentials.webhookUrl || '',
+            lastTestedAt: paymentAccount.last_tested_at ? paymentAccount.last_tested_at.toISOString() : null,
+          }
+        });
+      } catch (err) {
+        console.error('[PIXPAY API] Error fetching payment account:', err);
+        sendJson(res, 500, { error: 'INTERNAL_ERROR', message: 'Erro ao buscar conta de pagamento' });
       }
-    });
+    })();
     return;
   }
 
@@ -227,30 +363,76 @@ const server = http.createServer((req, res) => {
   if (pathname === '/api/v1/payment-accounts' && method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
-        const payload = body ? JSON.parse(body) : {};
-        if (payload.environment) lofypayAccount.environment = payload.environment;
-        if (typeof payload.clientId === 'string') lofypayAccount.clientId = payload.clientId.trim();
-        if (payload.secretKey && payload.secretKey.trim() !== '') {
-          lofypayAccount.secretKey = payload.secretKey.trim();
+        const tenant = await ensureDefaultTenant();
+        if (!tenant) {
+          sendJson(res, 503, { error: 'SERVICE_UNAVAILABLE', message: 'Banco de dados indisponível' });
+          return;
         }
+
+        const payload = body ? JSON.parse(body) : {};
+
+        let paymentAccount = await prisma.paymentAccount.findFirst({
+          where: {
+            tenant_id: DEFAULT_TENANT_ID,
+            provider: 'LOFYPAY',
+          }
+        });
+
+        const existingCredentials = paymentAccount?.encrypted_credentials
+          ? JSON.parse(paymentAccount.encrypted_credentials)
+          : {};
+
+        const updatedCredentials = {
+          clientId: payload.clientId !== undefined
+            ? (typeof payload.clientId === 'string' ? payload.clientId.trim() : existingCredentials.clientId)
+            : existingCredentials.clientId,
+          secretKey: (payload.secretKey && payload.secretKey.trim() !== '')
+            ? payload.secretKey.trim()
+            : existingCredentials.secretKey,
+          webhookUrl: existingCredentials.webhookUrl || '',
+        };
+
+        const updatedEnvironment = payload.environment || paymentAccount?.environment || process.env.LOFYPAY_DEFAULT_ENV || 'SANDBOX';
+
+        if (paymentAccount) {
+          paymentAccount = await prisma.paymentAccount.update({
+            where: { id: paymentAccount.id },
+            data: {
+              environment: updatedEnvironment,
+              encrypted_credentials: JSON.stringify(updatedCredentials),
+            }
+          });
+        } else {
+          paymentAccount = await prisma.paymentAccount.create({
+            data: {
+              tenant_id: DEFAULT_TENANT_ID,
+              provider: 'LOFYPAY',
+              environment: updatedEnvironment,
+              encrypted_credentials: JSON.stringify(updatedCredentials),
+              status: 'PENDING',
+            }
+          });
+        }
+
         sendJson(res, 200, {
           success: true,
           message: 'Configurações da LofyPay salvas com sucesso.',
           data: {
-            provider: lofypayAccount.provider,
-            environment: lofypayAccount.environment,
-            clientId: lofypayAccount.clientId,
-            hasSecret: Boolean(lofypayAccount.secretKey),
-            maskedSecretKey: maskSecret(lofypayAccount.secretKey),
-            status: lofypayAccount.status,
-            webhookUrl: lofypayAccount.webhookUrl,
-            lastTestedAt: lofypayAccount.lastTestedAt,
+            provider: paymentAccount.provider,
+            environment: paymentAccount.environment,
+            clientId: updatedCredentials.clientId || '',
+            hasSecret: Boolean(updatedCredentials.secretKey),
+            maskedSecretKey: maskSecret(updatedCredentials.secretKey || ''),
+            status: paymentAccount.status,
+            webhookUrl: updatedCredentials.webhookUrl || '',
+            lastTestedAt: paymentAccount.last_tested_at ? paymentAccount.last_tested_at.toISOString() : null,
           }
         });
       } catch (err) {
-        sendJson(res, 400, { error: 'BAD_REQUEST', message: 'Payload JSON inválido' });
+        console.error('[PIXPAY API] Error saving payment account:', err);
+        sendJson(res, 400, { error: 'BAD_REQUEST', message: 'Erro ao salvar configurações' });
       }
     });
     return;
@@ -258,25 +440,56 @@ const server = http.createServer((req, res) => {
 
   // Payment Accounts - Test LofyPay Connection
   if (pathname === '/api/v1/payment-accounts/test' && method === 'POST') {
-    if (!lofypayAccount.clientId || !lofypayAccount.secretKey) {
-      sendJson(res, 400, {
-        success: false,
-        message: 'Preencha o Client ID e a Secret Key antes de testar a conexão com a LofyPay.',
-      });
-      return;
-    }
+    (async () => {
+      try {
+        const paymentAccount = await prisma.paymentAccount.findFirst({
+          where: {
+            tenant_id: DEFAULT_TENANT_ID,
+            provider: 'LOFYPAY',
+          }
+        });
 
-    // Simulação e registro de handshake com o ambiente LofyPay
-    lofypayAccount.status = 'ACTIVE';
-    lofypayAccount.lastTestedAt = new Date().toISOString();
+        if (!paymentAccount) {
+          sendJson(res, 400, {
+            success: false,
+            message: 'Nenhuma conta de pagamento LofyPay configurada.',
+          });
+          return;
+        }
 
-    sendJson(res, 200, {
-      success: true,
-      status: 'ACTIVE',
-      environment: lofypayAccount.environment,
-      message: `Conexão com a API da LofyPay (${lofypayAccount.environment}) validada com sucesso!`,
-      timestamp: lofypayAccount.lastTestedAt,
-    });
+        const credentials = paymentAccount.encrypted_credentials
+          ? JSON.parse(paymentAccount.encrypted_credentials)
+          : {};
+
+        if (!credentials.clientId || !credentials.secretKey) {
+          sendJson(res, 400, {
+            success: false,
+            message: 'Preencha o Client ID e a Secret Key antes de testar a conexão com a LofyPay.',
+          });
+          return;
+        }
+
+        // Simulação e registro de handshake com o ambiente LofyPay
+        const updatedAccount = await prisma.paymentAccount.update({
+          where: { id: paymentAccount.id },
+          data: {
+            status: 'ACTIVE',
+            last_tested_at: new Date(),
+          }
+        });
+
+        sendJson(res, 200, {
+          success: true,
+          status: 'ACTIVE',
+          environment: updatedAccount.environment,
+          message: `Conexão com a API da LofyPay (${updatedAccount.environment}) validada com sucesso!`,
+          timestamp: updatedAccount.last_tested_at.toISOString(),
+        });
+      } catch (err) {
+        console.error('[PIXPAY API] Error testing payment account:', err);
+        sendJson(res, 500, { error: 'INTERNAL_ERROR', message: 'Erro ao testar conexão' });
+      }
+    })();
     return;
   }
 
@@ -284,19 +497,52 @@ const server = http.createServer((req, res) => {
   if (pathname === '/api/v1/webhooks/lofypay' && method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const payload = body ? JSON.parse(body) : {};
+
         if (payload.id || payload.transaction_id) {
           const matchId = payload.id || payload.transaction_id;
-          const target = paymentsList.find(p => p.id === matchId);
+          const target = await prisma.payment.findUnique({
+            where: { id: matchId }
+          });
+
           if (target) {
-            target.status = 'PAID';
-            target.paid_at = new Date().toISOString();
+            await prisma.payment.update({
+              where: { id: matchId },
+              data: {
+                status: 'PAID',
+                paid_at: new Date(),
+              }
+            });
+          }
+
+          // Create webhook event for audit trail
+          const paymentAccount = await prisma.paymentAccount.findFirst({
+            where: {
+              tenant_id: DEFAULT_TENANT_ID,
+              provider: 'LOFYPAY',
+            }
+          });
+
+          if (paymentAccount) {
+            await prisma.webhookEvent.create({
+              data: {
+                tenant_id: DEFAULT_TENANT_ID,
+                payment_account_id: paymentAccount.id,
+                payment_id: target ? matchId : null,
+                provider: 'LOFYPAY',
+                event_type: 'payment.paid',
+                raw_payload: body,
+                processed: true,
+              }
+            });
           }
         }
+
         sendJson(res, 200, { status: 'received', provider: 'lofypay', timestamp: Date.now() });
       } catch (err) {
+        console.error('[PIXPAY API] Error processing webhook:', err);
         sendJson(res, 200, { status: 'received_with_raw_payload' });
       }
     });
