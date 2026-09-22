@@ -6,7 +6,7 @@ Plataforma multi-tenant de recebimento e gestão de cobranças PIX, desacoplada 
 
 - **Domínio Público:** `https://pixpay.awecloudsolution.com`
 - **Frontend:** Painel Web Next.js minimalista (foco operacional: entrar -> informar valor -> gerar PIX -> acompanhar).
-- **Backend API:** NestJS / TypeScript com Prisma ORM e PostgreSQL 18.
+- **Backend API:** Node.js 26.9.0 (native HTTP server) com Prisma ORM 5.22.0 e PostgreSQL 18.6.
 - **Worker / Filas:** BullMQ + Redis para processamento assíncrono de webhooks, notificações e reconciliação.
 - **MCP Server:** Interface Model Context Protocol para o Hermes Agent (WhatsApp), com permissões restritas e autenticação por Service Account.
 - **Infraestrutura:** Docker Swarm + Portainer EE + Traefik v3 (`letsencryptresolver`) na rede overlay `interna`.
@@ -17,7 +17,7 @@ Plataforma multi-tenant de recebimento e gestão de cobranças PIX, desacoplada 
 - **URL Pública:** [https://pixpay.awecloudsolution.com](https://pixpay.awecloudsolution.com)
 - **API Health:** [https://pixpay.awecloudsolution.com/api/health](https://pixpay.awecloudsolution.com/api/health)
 - **Status Operacional:** Stack Docker Swarm ativa e saudável (4 serviços: `pixpay_web`, `pixpay_api`, `pixpay_worker`, `pixpay_redis`).
-- **Versão:** 0.2 (Limpeza de Dados Fictícios + Configuração LofyPay + Zero State).
+- **Versão:** 0.3 (Persistência via Prisma ORM + PostgreSQL 18 + Integração Completa).
 
 ---
 
@@ -26,17 +26,17 @@ Plataforma multi-tenant de recebimento e gestão de cobranças PIX, desacoplada 
 Acesse [https://pixpay.awecloudsolution.com](https://pixpay.awecloudsolution.com):
 
 1. **📊 Dashboard & PIX:**
-   - Métricas operacionais em tempo real e sem dados fictícios (Total recebido: R$ 0,00, Cobranças: 0, Pendentes: R$ 0,00).
-   - "Calculadora de PIX": formulário de emissão instantânea com geração de chave Copia e Cola e QR Code dinâmico.
-   - Tabela limpa de cobranças com empty state neutro ("Nenhum pagamento registrado ainda").
+   - Métricas operacionais em tempo real com persistência PostgreSQL (Total recebido hoje, Cobranças pagas, Valores pendentes).
+   - "Calculadora de PIX": formulário de emissão instantânea com geração de chave Copia e Cola e QR Code dinâmico, persistidos no banco de dados.
+   - Tabela de cobranças com dados reais do tenant, paginação e filtros por status (PENDING, PAID, EXPIRED, CANCELLED).
    - Botão de cópia de chave PIX com feedback tátil ("Copiado com Sucesso!").
 
 2. **⚙️ Configuração LofyPay (`lofypay.com`):**
    - Chaveamento entre ambientes `SANDBOX` (Testes) e `PRODUÇÃO`.
-   - Cadastro e persistência de `Client ID` e `Secret Key`.
+   - Cadastro e persistência segura de `Client ID` e `Secret Key` via criptografia JSON em PostgreSQL.
    - Proteção de segurança: Secret Key com mascaramento visual (`sec_dem****************4321`).
    - Card com a URL canônica de webhook do PIXPAY (`https://pixpay.awecloudsolution.com/api/v1/webhooks/lofypay`) com botão de cópia em 1 clique para cadastro no painel do PSP.
-   - Botões de ação "Salvar Credenciais" e "Testar Conexão" com feedback visual de resposta.
+   - Botões de ação "Salvar Credenciais" e "Testar Conexão" com feedback visual de resposta e atualização automática de status (PENDING → ACTIVE).
 
 ---
 
@@ -45,13 +45,13 @@ Acesse [https://pixpay.awecloudsolution.com](https://pixpay.awecloudsolution.com
 | Método | Endpoint | Descrição |
 |---|---|---|
 | `GET` | `/api/health` | Status operacional e revisão do container |
-| `GET` | `/api/v1/payments/summary` | Resumo financeiro diário (zero state) |
-| `GET` | `/api/v1/payments` | Listagem de pagamentos do tenant |
-| `POST` | `/api/v1/payments` | Criação de cobrança PIX dinâmica |
+| `GET` | `/api/v1/payments/summary` | Resumo financeiro diário com agregação PostgreSQL |
+| `GET` | `/api/v1/payments` | Listagem de pagamentos do tenant com filtros e paginação |
+| `POST` | `/api/v1/payments` | Criação de cobrança PIX dinâmica com persistência |
 | `GET` | `/api/v1/payment-accounts` | Consulta de configuração LofyPay (chave mascarada) |
-| `POST` | `/api/v1/payment-accounts` | Salvamento seguro de credenciais LofyPay |
-| `POST` | `/api/v1/payment-accounts/test` | Teste de conexão e handshake com a LofyPay |
-| `POST` | `/api/v1/webhooks/lofypay` | Ingestão e reconciliação de webhooks da LofyPay |
+| `POST` | `/api/v1/payment-accounts` | Salvamento seguro de credenciais LofyPay (JSON criptografado) |
+| `POST` | `/api/v1/payment-accounts/test` | Teste de conexão e handshake com a LofyPay (atualiza status para ACTIVE) |
+| `POST` | `/api/v1/webhooks/lofypay` | Ingestão e reconciliação de webhooks da LofyPay com audit trail |
 | `GET` | `/mcp` | Identificação do Servidor Model Context Protocol |
 
 ---
@@ -60,6 +60,7 @@ Acesse [https://pixpay.awecloudsolution.com](https://pixpay.awecloudsolution.com
 
 - [`openspec/specs/bootstrap-runtime/spec.md`](openspec/specs/bootstrap-runtime/spec.md) — Infraestrutura base e serviços Swarm.
 - [`openspec/specs/payment-account-config/spec.md`](openspec/specs/payment-account-config/spec.md) — Gestão de credenciais, mascaramento e estado zerado.
+- [`openspec/changes/database-schema-prisma/specs/database-foundation/spec.md`](openspec/changes/database-schema-prisma/specs/database-foundation/spec.md) — Schema Prisma, migrations e integração API/Worker.
 - Todas as especificações são validadas estritamente via `npx @fission-ai/openspec validate --all --strict`.
 
 ---

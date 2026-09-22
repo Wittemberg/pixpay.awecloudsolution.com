@@ -1,8 +1,8 @@
 # Estado atual
 
-- **Objetivo e resultado esperado:** Plataforma base, pipeline de CI/CD via GHCR/Portainer, limpeza de dados fictícios (zero state), módulo de configuração LofyPay com mascaramento e webhook, camada de persistência Prisma ORM com PostgreSQL 18, e documentação integralmente sincronizada até a versão 0.3.
-- **Mudança ativa / link para tarefas canônicas:** Mudança `database-schema-prisma` com Tasks 1-5 concluídas. Spec canônica em [openspec/changes/database-schema-prisma/specs/database-foundation/spec.md](../openspec/changes/database-schema-prisma/specs/database-foundation/spec.md).
-- **Revisão Git / branch e alterações locais relevantes:** Branch `main`, modificações locais: `package.json` (workspaces), `packages/database/` completo (schema, client singleton, build artifacts).
+- **Objetivo e resultado esperado:** Plataforma base, pipeline de CI/CD via GHCR/Portainer, limpeza de dados fictícios (zero state), módulo de configuração LofyPay com mascaramento e webhook, camada de persistência Prisma ORM com PostgreSQL 18 completamente integrada e funcional em produção, e documentação integralmente sincronizada até a versão 0.3.
+- **Mudança ativa / link para tarefas canônicas:** Mudança `database-schema-prisma` com Tasks 1-9 concluídas. Spec canônica em [openspec/changes/database-schema-prisma/specs/database-foundation/spec.md](../openspec/changes/database-schema-prisma/specs/database-foundation/spec.md).
+- **Revisão Git / branch e alterações locais relevantes:** Branch `main`, commit `42fb205` (2026-09-22), sem modificações locais pendentes. Refatoração completa de apps/api/src/main.js para persistência via Prisma Client.
 - **Decisões válidas:**
   - [Documento Mestre](PIXPAY_DOCUMENTO_MESTRE.md) (Seção 45 atualizada)
   - [Engenharia e Ciclo de Vida](ENGENHARIA_E_CICLO_DE_VIDA.md) (Fases A a H atualizadas)
@@ -14,17 +14,24 @@
   - [Spec Payment Account Config](../openspec/specs/payment-account-config/spec.md)
   - [Spec Database Foundation](../openspec/changes/database-schema-prisma/specs/database-foundation/spec.md)
 - **Última evidência:**
-  - Pacote `@pixpay/database` criado e compilado: Prisma Client gerado, tipos TypeScript em `dist/`, 9 models definidos (Tenant, User, TenantUser, ServiceAccount, PaymentAccount, Payment, PaymentEvent, WebhookEvent, AuditLog).
-  - Schema Prisma completo com multi-tenancy via `tenant_id`, índices compostos, foreign keys com cascade, tipos Decimal para valores monetários.
-  - Workspace configurado no root `package.json` com `packages/*` e `apps/*`.
+  - Prisma ORM 5.22.0 integrado e operacional com PostgreSQL 18.6 em Docker Swarm.
+  - Migration inicial aplicada via docker-entrypoint.sh automático: 9 models criados (Tenant, User, TenantUser, ServiceAccount, PaymentAccount, Payment, PaymentEvent, WebhookEvent, AuditLog).
+  - API completamente refatorada de in-memory mock para persistência real via Prisma Client.
+  - 7 endpoints validados em produção com operações CRUD funcionais:
+    - GET /api/v1/payments/summary - agregação de métricas (hoje: R$ 50, pending: R$ 0)
+    - GET /api/v1/payments - listagem com tenant_id filter
+    - POST /api/v1/payments - criação com PIX QR code e status PENDING
+    - GET /api/v1/payment-accounts - recuperação de config LofyPay com credenciais mascaradas
+    - POST /api/v1/payment-accounts - salvamento de credenciais criptografadas (JSON)
+    - POST /api/v1/payment-accounts/test - validação e atualização de status para ACTIVE
+    - POST /api/v1/webhooks/lofypay - processamento de webhook com atualização de Payment.status
+  - Padrão async IIFE aplicado consistentemente: `(async () => { try {...} catch {...} })()`.
+  - Tenant provisório criado via helper `ensureDefaultTenant()` com DEFAULT_TENANT_ID = 'default-tenant'.
+  - Conversão Decimal → Float via `parseFloat(amount.toString())` para JSON responses.
   - Stack Docker Swarm `pixpay` com 4 serviços em 1/1 réplicas ativas e saudáveis sob Traefik v3.
-  - Dashboard Web live em `https://pixpay.awecloudsolution.com/` com estado zerado real e aba dedicada à LofyPay.
-  - Data: 2026-09-21.
+  - Dashboard Web live em `https://pixpay.awecloudsolution.com/`.
+  - Data: 2026-09-22.
 - **Pendência ou bloqueio real:**
-  - Migration inicial ainda não aplicada (requer configuração de `DATABASE_URL` e PostgreSQL 18.6 acessível).
-  - Dockerfiles e entrypoint scripts ainda não atualizados para incluir Prisma generate e migrate deploy.
+  - Nenhum bloqueio técnico. Sistema operacional em Docker Swarm com persistência PostgreSQL funcional.
 - **Próxima ação concreta e escopo já autorizado:**
-  - Task 3: Gerar migration inicial via `prisma migrate dev --name init` (requer DATABASE_URL configurada).
-  - Task 6: Atualizar Dockerfiles para incluir Prisma generate no build.
-  - Task 7: Criar script docker-entrypoint.sh com migration automática.
-  - Tasks 8-9: Integrar `@pixpay/database` em apps/api e apps/worker.
+  - Tasks 10-12: Validação final, testes end-to-end, atualização de documentação técnica (README, AGENTS.md).
